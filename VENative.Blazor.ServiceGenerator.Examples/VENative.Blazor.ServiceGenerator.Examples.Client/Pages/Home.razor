@@ -1,0 +1,39 @@
+﻿@page "/"
+@inject IProductService ProductService
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+@if (OperatingSystem.IsBrowser())
+{
+    <p>WASM is running</p>
+}
+else
+{
+    <p>WASM is not running yet</p>
+}
+
+@if (products is null)
+{
+    <p>Fetching products...</p>
+}
+else
+{
+    <ul>
+        @foreach (var product in products)
+        {
+            <li @key=@product.Id>@product.Name</li>
+        }
+    </ul>
+}
+
+@code 
+{
+    IEnumerable<Product>? products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        products = await ProductService.GetProductsAsync();
+    }
+}

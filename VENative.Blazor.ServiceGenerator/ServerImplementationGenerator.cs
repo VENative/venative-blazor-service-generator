@@ -88,10 +88,21 @@ public class ServerImplementationGenerator : IIncrementalGenerator
             var attributeData = classSymbol.GetAttributes()
                 .First(a => SymbolEqualityComparer.Default.Equals(a.AttributeClass, serverHubAttributeSymbol));
 
-            var @namespace = (string)attributeData.ConstructorArguments[0].Value!;
-            var @route = (string)attributeData.ConstructorArguments[1].Value!;
+            var @namespace = (string?)attributeData.ConstructorArguments[0].Value;
+            if (string.IsNullOrWhiteSpace(@namespace))
+            {
+                @namespace = classSymbol.ContainingNamespace.ToDisplayString();
+            }
 
-            var source = GenerateProxyClass(context, classSymbol, @namespace, @route, ref errors);
+            var @route = (string?)attributeData.ConstructorArguments[1].Value;
+            if (string.IsNullOrWhiteSpace(@route))
+            {
+                @route = $"/I{classSymbol.Name}";
+            }
+
+            var @useAuthentication = (bool)attributeData.ConstructorArguments[2].Value!;
+
+            var source = GenerateProxyClass(context, classSymbol, @namespace!, @route!, @useAuthentication, ref errors);
 
             if (errors == 0)
             {
@@ -100,7 +111,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
         }
     }
 
-    private static string GenerateProxyClass(SourceProductionContext context, INamedTypeSymbol classSymbol, string @namespace, string @route, ref int errors)
+    private static string GenerateProxyClass(SourceProductionContext context, INamedTypeSymbol classSymbol, string @namespace, string @route, bool useAuthentication, ref int errors)
     {
         var className = classSymbol.Name;
         var proxyClassName = $"Proxy{className}";
@@ -121,6 +132,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
         using Microsoft.AspNetCore.Components;
         using Microsoft.AspNetCore.Authorization;
         using System.Runtime.CompilerServices;
+        using Microsoft.AspNetCore.Http;
 
         #nullable enable
 
@@ -131,24 +143,27 @@ public class ServerImplementationGenerator : IIncrementalGenerator
         public sealed class {{proxyClassName}} : Hub
         {
             private readonly {{interfaceDisplayString}} _implementation;
-            private readonly HttpContext _context;
 
-            public {{proxyClassName}}(HttpContext context, {{interfaceDisplayString}} implementation)
+            public {{proxyClassName}}({{interfaceDisplayString}} implementation)
             {
-                this._context = context;
                 this._implementation = implementation;
             }
 
-            private void EnsureAuthenticated()
+            private void EnsureAuthenticated(HubCallerContext? context)
             {
-                var isAuthenticated = _context.User.Identity?.IsAuthenticated ?? false;
+                if (context is null) 
+                {
+                    return;
+                }
+
+                var isAuthenticated = context.User.Identity?.IsAuthenticated ?? false;
                 if (!isAuthenticated)
                 {
-                    throw new Exception("The user is not authenticated.");
+                    throw new InvalidOperationException("The user is not authenticated.");
                 }
             }
 
-            {{GenerateMethods(context, classSymbol, ref errors)}}
+            {{GenerateMethods(context, classSymbol, useAuthentication, ref errors)}}
         }
         """;
 
@@ -161,7 +176,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
         return firstInterface?.ToDisplayString() ?? string.Empty;
     }
 
-    private static string GenerateMethods(SourceProductionContext context, INamedTypeSymbol classSymbol, ref int errors)
+    private static string GenerateMethods(SourceProductionContext context, INamedTypeSymbol classSymbol, bool useAuthentication, ref int errors)
     {
         HashSet<string> overridenMehodNames = [];
         HashSet<string> usedMehodNames = [];
@@ -247,8 +262,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
                             {{methodAttributes}}
                             public async IAsyncEnumerable<bool> {{method.Name}}({{parametersWithoutToken}}{{paramsSeparator}}[EnumeratorCancellation] CancellationToken cancellationToken = default)
                             {
-                                _context = Context;
-                                EnsureAuthenticated();
+                                {{(useAuthentication ? "EnsureAuthenticated(Context);" : null)}}
                                 await _implementation.{{method.Name}}({{argumentsWithoutToken}}{{argsSeparator}}cancellationToken: cancellationToken);
                                 yield return true;
                             }
@@ -261,11 +275,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
                             {{methodAttributes}}
                             public async Task {{method.Name}}({{parameters}})
                             {
-                                if (Context is not null)
-                                {
-                                    _context = Context;
-                                    EnsureAuthenticated();
-                                }
+                                {{(useAuthentication ? "EnsureAuthenticated(Context);" : null)}}
                                 await _implementation.{{method.Name}}({{arguments}});
                             }
                         """);
@@ -282,8 +292,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
                             {{methodAttributes}}
                             public async IAsyncEnumerable<{{genericType}}> {{method.Name}}({{parametersWithoutToken}}{{paramsSeparator}}[EnumeratorCancellation] CancellationToken cancellationToken = default)
                             {
-                                _context = Context;
-                                EnsureAuthenticated();
+                                {{(useAuthentication ? "EnsureAuthenticated(Context);" : null)}}
                                 yield return await _implementation.{{method.Name}}({{argumentsWithoutToken}}{{argsSeparator}}cancellationToken: cancellationToken);
                             }
                         """);
@@ -295,11 +304,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
                             {{methodAttributes}}
                             public async Task<{{genericType}}> {{method.Name}}({{parameters}})
                             {
-                                if (Context is not null)
-                                {    
-                                    _context = Context;
-                                    EnsureAuthenticated();
-                                }
+                                {{(useAuthentication ? "EnsureAuthenticated(Context);" : null)}}
                                 return await _implementation.{{method.Name}}({{arguments}});
                             }
                         """);
@@ -315,11 +320,7 @@ public class ServerImplementationGenerator : IIncrementalGenerator
                         {{methodAttributes}}
                         public async Task<{{returnType}}> {{method.Name}}({{parametersWithoutToken}}{{paramsSeparator}} CancellationToken cancellationToken = default)
                         {
-                            if (Context is not null)
-                            {   
-                                _context = Context;
-                                EnsureAuthenticated();
-                            }
+                            {{(useAuthentication ? "EnsureAuthenticated(Context);" : null)}}
                             return _implementation.{{method.Name}}({{argumentsWithoutToken}}{{argsSeparator}}cancellationToken: cancellationToken);
                         }
                     """);

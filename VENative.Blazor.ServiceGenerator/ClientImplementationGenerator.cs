@@ -267,7 +267,7 @@ public class ClientImplementationGenerator : IIncrementalGenerator
 
                 var methodName = method.Name;
                 var parameters = Join(", ", method.Parameters.Select(p => $"{p.Type.ToDisplayString()} {p.Name}"));
-                var parameterNames = Join(", ", method.Parameters.Select(p => p.Type.ToDisplayString() == CANCELLATION_TOKEN ? $"cancellationToken: {p.Name}" : p.Name));;
+                var parameterNames = Join(", ", method.Parameters.Select(p => p.Type.ToDisplayString() == CANCELLATION_TOKEN ? $"cancellationToken: {p.Name}" : p.Name));
 
                 var hasCancellationToken = method.Parameters.HasCancellationToken();
                 var returnsSomething = !IsNullOrWhiteSpace(fullGenericArgumentType);
@@ -320,7 +320,7 @@ public class ClientImplementationGenerator : IIncrementalGenerator
                     $$"""
                         public async {{taskReturnType}} {{methodName}}({{parameters}}) 
                         {
-                            //await EnsureConnectionAsync();
+                            await EnsureConnectionAsync();
 
                             {{invocation}}
                         }
@@ -333,7 +333,7 @@ public class ClientImplementationGenerator : IIncrementalGenerator
 
                         public async {{taskReturnType}} {{methodName}}({{parameters}})   
                         {
-                            //await EnsureConnectionAsync();
+                            await EnsureConnectionAsync();
                 
                             {{invocation}}
                         }

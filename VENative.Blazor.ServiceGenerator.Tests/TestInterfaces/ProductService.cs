@@ -2,7 +2,7 @@
 
 namespace VENative.Blazor.ServiceGenerator.Tests.TestInterfaces;
 
-[GenerateHub("VENative.Blazor.ServiceGenerator.Tests.TestInterfaces", $"/{nameof(IProductService)}")]
+[GenerateHub($"/{nameof(IProductService)}")]
 public class ProductService : IProductService
 {
     public Task CreateUserAsync(User user, CancellationToken cancellationToken = default)
