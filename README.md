@@ -2,6 +2,8 @@
 
 VENative Blazor Service Generator is a project designed to simplify applications created with Blazor Web App. By leveraging source code generators, this project automatically creates a SignalR hub for your services and generates a consumer for this hub on the WebAssembly client. This eliminates the need for manual client-side implementation, accelerating the development process for your Blazor applications while enhancing interactivity.
 
+All you need to do is decorate your interface and implementation with an attribute, and that's it! Your service can be consumed from WebAssembly effortlessly!
+
 ## Project Status
 This project is in its early stages of development. As such, it is **not recommended** for use in production environments due to the high likelihood of breaking changes.
 
